@@ -13,12 +13,12 @@ const double b1 = 0.001;
 
 
 void ekf_step(ekf_t* ekf, double y[2]) {
-    // === 1. Predikcia kovariancie: P = F * P * F' + Q ===
+    // === 1. Prediction: P = F * P * F' + Q ===
     double FP[4][4] = {0};
     double Ft[4][4] = {0};
     double FPFt[4][4] = {0};
 
-    // Ft = F transponovane
+    // Ft = F transpon
     for (int i = 0; i < 4; i++)
         for (int j = 0; j < 4; j++)
             Ft[i][j] = ekf->F[j][i];
@@ -38,14 +38,14 @@ void ekf_step(ekf_t* ekf, double y[2]) {
             ekf->P[i][j] = FPFt[i][j] + ekf->Q[i][j];
         }
 
-    // === 2. Kalmanov zisk: K = P * H' * inv(H * P * H' + R) ===
+    // === 2. Kalman gain: K = P * H' * inv(H * P * H' + R) ===
     double Ht[4][2] = {0};
     double PHt[4][2] = {0};
     double HPHt[2][2] = {0};
     double S[2][2] = {0};
     double S_inv[2][2] = {0};
 
-    // Ht = H transponovane
+    // Ht = H transpon
     for (int i = 0; i < 2; i++)
         for (int j = 0; j < 4; j++)
             Ht[j][i] = ekf->H[i][j];
@@ -75,7 +75,7 @@ void ekf_step(ekf_t* ekf, double y[2]) {
     S_inv[1][0] = -S[1][0] / det;
     S_inv[1][1] =  S[0][0] / det;
 
-    // Kalmanov zisk K = PHt * S_inv
+    // Kalman gain K = PHt * S_inv
     for (int i = 0; i < 4; i++)
         for (int j = 0; j < 2; j++) {
             ekf->K[i][j] = 0.0;
@@ -83,7 +83,7 @@ void ekf_step(ekf_t* ekf, double y[2]) {
                 ekf->K[i][j] += PHt[i][k] * S_inv[k][j];
         }
 
-    // === 3. Korekcia stavu: x = x + K * (y - hx) ===
+    // === 3. Corection: x = x + K * (y - hx) ===
     double residual[2];
     for (int i = 0; i < 2; i++)
         residual[i] = y[i] - ekf->hx[i];
@@ -95,7 +95,7 @@ void ekf_step(ekf_t* ekf, double y[2]) {
         ekf->x[i] += delta;
     }
 
-    // === 4. Korekcia kovariancie: P = (I - K*H) * P ===
+    // === 4. Corection: P = (I - K*H) * P ===
     double KH[4][4] = {0};
     double I_KH[4][4] = {0};
     double newP[4][4] = {0};
@@ -129,20 +129,19 @@ void model(ekf_t* ekf, double x[4], double u[1]) {
         b1 * x[3]
     ) / a_den;
 
-    // Výpočet xdot (derivácií stavov)
     double xdot[4];
     xdot[0] = x[1];
     xdot[1] = ddtheta0;
     xdot[2] = x[3];
     xdot[3] = ddtheta1;
 
-    // Eulerov krok: predikovaný stav
+
     for (int i = 0; i < 4; i++) {
         x[i] += Ts * xdot[i];
         ekf->fx[i] = x[i];
     }
 
-    // Jacobián F (df/dx)
+
     for (int i = 0; i < 4; i++)
         for (int j = 0; j < 4; j++)
             ekf->F[i][j] = 0.0;
@@ -157,11 +156,11 @@ void model(ekf_t* ekf, double x[4], double u[1]) {
     ) / a_den;
     ekf->F[3][3] = b1 / a_den;
 
-    // Výstupná funkcia h(x)
+
     ekf->hx[0] = x[0];
     ekf->hx[1] = x[2];
 
-    // Jacobián H = dh/dx
+
     for (int i = 0; i < 2; i++)
         for (int j = 0; j < 4; j++)
             ekf->H[i][j] = 0.0;
