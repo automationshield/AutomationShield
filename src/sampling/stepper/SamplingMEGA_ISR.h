@@ -10,10 +10,10 @@
   Last update: 3.6.2019.
 */
 
-#ifndef SAMPLINGMEGA_ISR_H
-#define SAMPLINGMEGA_ISR_H
+#ifndef SAMPLING_STEPPER_MEGA_ISR_H
+#define SAMPLING_STEPPER_MEGA_ISR_H
 
-ISR(MEGA_ISR_VECT)
+ISR(TIMER5_COMPA_vect)
 {
  if (!SamplingStepper.fireFlag){                   // If not over the maximal resolution of the counter
   (SamplingStepper.getInterruptCallback())();      // Start the interrupt callback

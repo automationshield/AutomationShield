@@ -11,10 +11,10 @@
 */
 // Pre Stepper
 
-#ifndef SAMPLINGUNO_R4_ISR_H
-#define SAMPLINGUNO_R4_ISR_H
+#ifndef SAMPLING_STEPPER_UNO_R4_ISR_H
+#define SAMPLING_STEPPER_UNO_R4_ISR_H
 
-void GPTimer(timer_callback_args_t* p_args) {
+void GPTimerCbk(timer_callback_args_t* p_args) {
     if (!SamplingStepper.fireFlag){                   // If not over the maximal resolution of the counter
         (SamplingStepper.getInterruptCallback())();      // Start the interrupt callback
     }                                          

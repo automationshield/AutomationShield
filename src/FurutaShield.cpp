@@ -1,6 +1,7 @@
-#include "FurutaShield.h"
+#include "furuta/FurutaClass.h"
 
-//#include "SamplingStepper.h" // Uncomment this line if you want to use FurutaShield; otherwise, leave it commented.
+// The FurutaShield sketch defines this object and its timer ISR.
+extern SamplingNoServo::SamplingClass SamplingStepper;
 
 AS5600 as5600;
 
@@ -103,10 +104,8 @@ void FurutaClass::actuatorWrite(float u)
         dir = true;
       }
 
-#ifdef STEPPER
-      SamplingStepper.period(_speed);
       SamplingStepper.interrupt(stepEnable);
-#endif
+      SamplingStepper.period(_speed);
     }
   }
 }

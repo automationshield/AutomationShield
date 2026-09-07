@@ -82,7 +82,7 @@
   #ifdef ARDUINO_ARCH_AVR
     #define HALL_LSAT	30							// [10-bit ADC] Lower saturation of the Hall sensor
     #define HALL_HSAT 586							// [10-bit ADC] Higher (upper) saturation of the Hall sensor
-  #elif ARDUINO_ARCH_SAMD || ARDUINO_ARCH_SAM
+  #elif ARDUINO_ARCH_SAMD || ARDUINO_ARCH_SAM || ARDUINO_ARCH_RENESAS_UNO
     #define HALL_LSAT	120							// [12-bit ADC] Lower saturation of the Hall sensor
     #define HALL_HSAT 2346							// [12-bit ADC] Higher (upper) saturation of the Hall sensor
   #endif
@@ -91,7 +91,7 @@
  #ifdef ARDUINO_ARCH_AVR
 		#define HALL_LSAT	28							// [10-bit ADC] Lower saturation of the Hall sensor
 		#define HALL_HSAT 631							// [10-bit ADC] Higher (upper) saturation of the Hall sensor
-	#elif ARDUINO_ARCH_SAMD || ARDUINO_ARCH_SAM
+	#elif ARDUINO_ARCH_SAMD || ARDUINO_ARCH_SAM || ARDUINO_ARCH_RENESAS_UNO
 		#define HALL_LSAT	112							// [12-bit ADC] Lower saturation of the Hall sensor
 		#define HALL_HSAT 2526							// [12-bit ADC] Higher (upper) saturation of the Hall sensor
 	#endif

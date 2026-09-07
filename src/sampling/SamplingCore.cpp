@@ -75,10 +75,10 @@ void SamplingNoServo::SamplingClass::period(unsigned long microseconds) {
 
   #elif ARDUINO_SAMD_ZERO
     // For Arduino Zero
-    // Enable GCLK for TCC2 and TC5 (timer counter input clock)
+    // Enable the shared clock for TC4 (stepper) and TC5 (standard sampling).
     GCLK->CLKCTRL.reg = (uint16_t) (GCLK_CLKCTRL_CLKEN | GCLK_CLKCTRL_GEN_GCLK0 | GCLK_CLKCTRL_ID(GCM_TC4_TC5)) ;
-    TC5->COUNT16.CTRLA.reg |= TC_CTRLA_MODE_COUNT16;        // Set Timer counter Mode to 16 bits
-    TC5->COUNT16.CTRLA.reg |= TC_CTRLA_WAVEGEN_MFRQ;        // Set TC5 mode as match frequency
+    samplingCounter->COUNT16.CTRLA.reg |= TC_CTRLA_MODE_COUNT16;        // Set Timer counter Mode to 16 bits
+    samplingCounter->COUNT16.CTRLA.reg |= TC_CTRLA_WAVEGEN_MFRQ;        // Match frequency mode
 
     setSamplingPeriod(microseconds);
     #ifdef ECHO_TO_SERIAL
@@ -86,15 +86,15 @@ void SamplingNoServo::SamplingClass::period(unsigned long microseconds) {
         Serial.println("Sampling period is too long.\nMax is xxxx microseconds.");
     #endif
 
-    NVIC_EnableIRQ(TC5_IRQn);                               // Enable interrupt for TC5
-    TC5->COUNT16.INTENSET.bit.MC0 = 1;                      // Enable the TC5 interrupt request
-    TC5->COUNT16.CTRLA.reg |= TC_CTRLA_ENABLE;              // Enable timer
+    NVIC_EnableIRQ(samplingIRQ);                               // Enable the selected timer interrupt
+    samplingCounter->COUNT16.INTENSET.bit.MC0 = 1;                      // Enable the compare interrupt request
+    samplingCounter->COUNT16.CTRLA.reg |= TC_CTRLA_ENABLE;              // Enable timer
 
   #elif ADAFRUIT_METRO_M4_EXPRESS
     // For Adafruit M4 Express
-    GCLK->PCHCTRL[TC5_GCLK_ID].reg = GCLK_PCHCTRL_GEN_GCLK1_Val | (1 << GCLK_PCHCTRL_CHEN_Pos);
-    TC5->COUNT16.CTRLA.bit.ENABLE = 0;
-    TC5->COUNT16.WAVE.bit.WAVEGEN = TC_WAVE_WAVEGEN_MFRQ; // Match mode, counter resets at match
+    GCLK->PCHCTRL[samplingCounter == TC4 ? TC4_GCLK_ID : TC5_GCLK_ID].reg = GCLK_PCHCTRL_GEN_GCLK1_Val | (1 << GCLK_PCHCTRL_CHEN_Pos);
+    samplingCounter->COUNT16.CTRLA.bit.ENABLE = 0;
+    samplingCounter->COUNT16.WAVE.bit.WAVEGEN = TC_WAVE_WAVEGEN_MFRQ; // Match mode, counter resets at match
 
     setSamplingPeriod(microseconds);
     #ifdef ECHO_TO_SERIAL
@@ -102,9 +102,9 @@ void SamplingNoServo::SamplingClass::period(unsigned long microseconds) {
         Serial.println("Sampling period is too long.\nMax is xxxx microseconds.");
     #endif
 
-    NVIC_EnableIRQ(TC5_IRQn);                               // Enable interrupt for TC5
-    TC5->COUNT16.INTENSET.bit.MC0 = 1;                // Enable the compare interrupt
-    TC5->COUNT16.CTRLA.reg |= TC_CTRLA_ENABLE;              // Enable timer
+    NVIC_EnableIRQ(samplingIRQ);                               // Enable the selected timer interrupt
+    samplingCounter->COUNT16.INTENSET.bit.MC0 = 1;                // Enable the compare interrupt
+    samplingCounter->COUNT16.CTRLA.reg |= TC_CTRLA_ENABLE;              // Enable timer
 
   #elif ARDUINO_ARCH_SAM
     // TC5 is free when no Servo is used, use TC5 like for Mega
@@ -244,48 +244,48 @@ bool SamplingNoServo::SamplingClass::setSamplingPeriod(unsigned long microsecond
   #elif (defined(ARDUINO_SAMD_ZERO) || defined (ADAFRUIT_METRO_M4_EXPRESS))    // For SAMD21G boards, e.g. Zero
     // Up to 1.3653 ms with 20.8 ns resolution
     if (cycles < timerResolution) {
-      TC5->COUNT16.CTRLA.reg |= TC_CTRLA_PRESCALER_DIV1;    // no prescaling
-      TC5->COUNT16.CC[0].reg = (uint32_t)cycles - 1;        // compare match register
+      samplingCounter->COUNT16.CTRLA.reg |= TC_CTRLA_PRESCALER_DIV1;    // no prescaling
+      samplingCounter->COUNT16.CC[0].reg = (uint32_t)cycles - 1;        // compare match register
     }
     // Up to 2.7307 ms with 41.67 ns resolution
     else if (cycles < timerResolution * 2) {
-      TC5->COUNT16.CTRLA.reg |= TC_CTRLA_PRESCALER_DIV2;    // 2 prescaler
-      TC5->COUNT16.CC[0].reg = (uint32_t)(cycles / 2) - 1;  // compare match register
+      samplingCounter->COUNT16.CTRLA.reg |= TC_CTRLA_PRESCALER_DIV2;    // 2 prescaler
+      samplingCounter->COUNT16.CC[0].reg = (uint32_t)(cycles / 2) - 1;  // compare match register
     }
     // Up to 5.4613 ms with 83.3 ns resolution
     else if (cycles < timerResolution * 4) {
-      TC5->COUNT16.CTRLA.reg |= TC_CTRLA_PRESCALER_DIV4;    // 4 prescaler
-      TC5->COUNT16.CC[0].reg = (uint32_t)(cycles / 4) - 1;  // compare match register
+      samplingCounter->COUNT16.CTRLA.reg |= TC_CTRLA_PRESCALER_DIV4;    // 4 prescaler
+      samplingCounter->COUNT16.CC[0].reg = (uint32_t)(cycles / 4) - 1;  // compare match register
     }
     // Up to 10.9227 ms with 166.67 ns resolution
     else if (cycles < timerResolution * 8) {
-      TC5->COUNT16.CTRLA.reg |= TC_CTRLA_PRESCALER_DIV8;    //  8 prescaler
-      TC5->COUNT16.CC[0].reg = (uint32_t)(cycles / 8) - 1;  // compare match register
+      samplingCounter->COUNT16.CTRLA.reg |= TC_CTRLA_PRESCALER_DIV8;    //  8 prescaler
+      samplingCounter->COUNT16.CC[0].reg = (uint32_t)(cycles / 8) - 1;  // compare match register
     }
     // Up to 21.8453 ms with 333.33 ns resolution
     else if (cycles < timerResolution * 16) {
-      TC5->COUNT16.CTRLA.reg |= TC_CTRLA_PRESCALER_DIV16;   //  16 prescaler
-      TC5->COUNT16.CC[0].reg = (uint32_t)(cycles / 16) - 1; // compare match register
+      samplingCounter->COUNT16.CTRLA.reg |= TC_CTRLA_PRESCALER_DIV16;   //  16 prescaler
+      samplingCounter->COUNT16.CC[0].reg = (uint32_t)(cycles / 16) - 1; // compare match register
     }
     // Up to  87.3813 ms with 1.33 us resolution
     else if (cycles < timerResolution * 64) {
-      TC5->COUNT16.CTRLA.reg |= TC_CTRLA_PRESCALER_DIV64; //  64 prescaler
-      TC5->COUNT16.CC[0].reg = (uint32_t)(cycles / 64) - 1; // compare match register
+      samplingCounter->COUNT16.CTRLA.reg |= TC_CTRLA_PRESCALER_DIV64; //  64 prescaler
+      samplingCounter->COUNT16.CC[0].reg = (uint32_t)(cycles / 64) - 1; // compare match register
     }
     // Up to 349.5253 ms with 5.33 us resolution
     else if (cycles < timerResolution * 256) {
-      TC5->COUNT16.CTRLA.reg |= TC_CTRLA_PRESCALER_DIV256;  //  256 prescaler
-      TC5->COUNT16.CC[0].reg = (uint32_t)(cycles / 256) - 1; // compare match register
+      samplingCounter->COUNT16.CTRLA.reg |= TC_CTRLA_PRESCALER_DIV256;  //  256 prescaler
+      samplingCounter->COUNT16.CC[0].reg = (uint32_t)(cycles / 256) - 1; // compare match register
     }
     // Up to 1.3981 s with 21.3333 us resolution
     else if (cycles < timerResolution * 1024) {
-      TC5->COUNT16.CTRLA.reg |= TC_CTRLA_PRESCALER_DIV1024; //  1024 prescaler
-      TC5->COUNT16.CC[0].reg = (uint32_t)(cycles / 1024) - 1; // compare match register
+      samplingCounter->COUNT16.CTRLA.reg |= TC_CTRLA_PRESCALER_DIV1024; //  1024 prescaler
+      samplingCounter->COUNT16.CC[0].reg = (uint32_t)(cycles / 1024) - 1; // compare match register
     }
     // Over 1.3981 s with 10 ms resolution
     else if (cycles >= timerResolution * 1024) {
-      TC5->COUNT16.CTRLA.reg |= TC_CTRLA_PRESCALER_DIV8;    // 8 prescaler
-      TC5->COUNT16.CC[0].reg = (uint32_t)(COMPARE_10MS) - 1; // compare match register
+      samplingCounter->COUNT16.CTRLA.reg |= TC_CTRLA_PRESCALER_DIV8;    // 8 prescaler
+      samplingCounter->COUNT16.CC[0].reg = (uint32_t)(COMPARE_10MS) - 1; // compare match register
       fireFlag = 1;                                         // repeat firing
       fireResolution = 10000;                               // resolution in us
     }

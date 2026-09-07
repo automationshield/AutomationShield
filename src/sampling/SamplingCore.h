@@ -52,6 +52,12 @@ namespace SamplingNoServo {
     class SamplingClass {
       public:
         SamplingClass();
+        #if defined(ARDUINO_SAMD_ZERO) || defined(ADAFRUIT_METRO_M4_EXPRESS)
+        SamplingClass(Tc* timer, IRQn_Type timerIRQ) : SamplingClass() {
+          samplingCounter = timer;
+          samplingIRQ = timerIRQ;
+        }
+        #endif
         void period(unsigned long microseconds);
         void interrupt(p_to_void_func interruptCallback);
         p_to_void_func getInterruptCallback ();
@@ -74,6 +80,11 @@ namespace SamplingNoServo {
         #endif
 
       private:
+        #if defined(ARDUINO_SAMD_ZERO) || defined(ADAFRUIT_METRO_M4_EXPRESS)
+            // Standard sampling keeps TC5; Furuta's stepper uses TC4.
+            Tc* samplingCounter = TC5;
+            IRQn_Type samplingIRQ = TC5_IRQn;
+        #endif
             static void defaultInterrupt();
             p_to_void_func interruptCallback;
 
