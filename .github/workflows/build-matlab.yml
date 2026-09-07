@@ -7,6 +7,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -15,6 +16,7 @@ jobs:
         uses: matlab-actions/setup-matlab@v2
         with:
           release: R2021a
+          products: Simulink
 
       - name: Run script
         uses: matlab-actions/run-command@v2
