@@ -1,6 +1,5 @@
 #include <SamplingServo.h>
 #include <BOPShield.h>
-#include <BasicLinearAlgebra.h>
 
 using namespace BLA;
 
