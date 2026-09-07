@@ -40,7 +40,7 @@
 #if defined(ARDUINO_SAMD_ZERO) || defined(ADAFRUIT_METRO_M4_EXPRESS)
 SamplingNoServo::SamplingClass SamplingStepper(TC4, TC4_IRQn);
 #else
-SamplingNoServo::SamplingClass SamplingStepper;
+SamplingNoServo::SamplingClass SamplingStepperStepper;
 #endif
 
 #ifndef STEPPER
@@ -51,10 +51,10 @@ SamplingNoServo::SamplingClass SamplingStepper;
 	#include "sampling/stepper/SamplingStepperUNO_ISR.h"
 
 #elif ARDUINO_AVR_MEGA2560
-	#include "sampling/stepper/SamplingMEGA_ISR.h"
+	#include "sampling/stepper/SamplingStepperMEGA_ISR.h"
 
 #elif (defined(ARDUINO_SAMD_ZERO) || defined(ADAFRUIT_METRO_M4_EXPRESS))
-	#include "sampling/stepper/SamplingSAMD_ISR.h"
+	#include "sampling/stepper/SamplingStepperSAMD_ISR.h"
 
 #elif ARDUINO_ARCH_SAM
 void TC5_Handler(void){
