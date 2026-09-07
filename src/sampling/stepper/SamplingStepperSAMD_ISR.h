@@ -11,8 +11,8 @@
   Last update: 3.6.2019.
 */
 
-#ifndef SAMPLING_STEPPER_SAMD_ISR_H
-#define SAMPLING_STEPPER_SAMD_ISR_H
+#ifndef SAMPLINGSTEPPERSAMD_ISR_H
+#define SAMPLINGSTEPPERSAMD_ISR_H
 
 void TC4_Handler (void) {
  if (!SamplingStepper.fireFlag){                   // If not over the maximal resolution of the counter

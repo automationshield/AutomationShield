@@ -11,8 +11,8 @@
 */
 // Pre Stepper
 
-#ifndef SAMPLING_STEPPER_UNO_R4_ISR_H
-#define SAMPLING_STEPPER_UNO_R4_ISR_H
+#ifndef SAMPLINGSTEPPERUNOR4_ISR_H
+#define SAMPLINGSTEPPERUNOR4_ISR_H
 
 void GPTimerCbk(timer_callback_args_t* p_args) {
     if (!SamplingStepper.fireFlag){                   // If not over the maximal resolution of the counter
