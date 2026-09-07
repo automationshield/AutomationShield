@@ -31,6 +31,8 @@
 #ifndef SAMPLINGSERVO_H                     //Include guard
 #define SAMPLINGSERVO_H   
 
+#include "sampling/SamplingCore.h"
+
 SamplingServo::SamplingClass Sampling;
 
 #ifdef ARDUINO_AVR_UNO

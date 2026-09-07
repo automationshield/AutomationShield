@@ -40,7 +40,7 @@
 #if defined(ARDUINO_SAMD_ZERO) || defined(ADAFRUIT_METRO_M4_EXPRESS)
 SamplingNoServo::SamplingClass SamplingStepper(TC4, TC4_IRQn);
 #else
-SamplingNoServo::SamplingClass SamplingStepperStepper;
+SamplingNoServo::SamplingClass SamplingStepper;
 #endif
 
 #ifndef STEPPER

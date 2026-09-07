@@ -31,6 +31,8 @@
 #ifndef SAMPLING_H                     //Include guard
 #define SAMPLING_H
 
+#include "sampling/SamplingCore.h"
+
 #ifdef SAMPLINGSTEPPER_H
   #error "FurutaShield/SamplingStepper uses the Sampling.h timer. Use SamplingServo.h for control-loop sampling."
 #endif
