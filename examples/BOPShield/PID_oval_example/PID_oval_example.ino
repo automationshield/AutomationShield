@@ -1,5 +1,5 @@
 #include <SamplingServo.h>
-#include <BOP_Shield.h>
+#include <BOPShield.h>
 #include <PIDAbs.h>
 
 #define KP_X 0.18
@@ -10,15 +10,11 @@
 #define TI_Y 0.3
 #define TD_Y 0.5
 
-const float Ts = 50;  
+const float Ts = 50;   
 
 float x, y;
 float rX, rY;
 float uX, uY;
-float uX_raw=0;
-float uY_raw=0;
-float uX_prev=0;
-float uY_prev=0;
 
 PIDAbsClass PIDAbsX;
 PIDAbsClass PIDAbsY;
@@ -58,26 +54,18 @@ void loop() {
     x = XY(0);
     y = XY(1);
 
-    BLA::Matrix<2, 1> XYsetpoint = BOPShield.circle(analogRead(_P));
+    BLA::Matrix<2, 1> XYsetpoint = BOPShield.oval(analogRead(_P));
 
     rX = XYsetpoint(0);
     rY = XYsetpoint(1);
 
-    uX_raw = PIDAbsX.compute(rX - x, -10, 10, -50, 50);
-    uY_raw = PIDAbsY.compute(rY - y, -10, 10, -50, 50);
+    uX = PIDAbsX.compute(rX - x, -10, 10, -100, 100);
+    uY = PIDAbsY.compute(rY - y, -10, 10, -100, 100);
 
-   if (uX_raw > uX_prev + 2)
-    uX = uX_prev + 2;
-
-   else if (uX_raw < uX_prev - 2)
-    uX = uX_prev - 2;
-
-    else
-    uX = uX_raw;
     BOPShield.actuatorWrite(uX, uY);
 
-    Serial.print(x); Serial.print(", ");
-    Serial.print(y); Serial.print(", ");
+    Serial.print(x); Serial.print(" ");
+    Serial.print(y); Serial.print(" ");
     Serial.print(rX); Serial.print(", ");
     Serial.print(rY); Serial.print(", ");
     Serial.print(uX); Serial.print(", ");

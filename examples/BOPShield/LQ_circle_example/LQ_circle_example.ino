@@ -1,5 +1,5 @@
 #include <SamplingServo.h>
-#include <BOP_Shield.h>
+#include <BOPShield.h>
 #include <BasicLinearAlgebra.h>
 
 using namespace BLA;
@@ -64,7 +64,7 @@ void loop() {
     x = XY(0);
     y = XY(1);
 
-    Matrix<2, 1> XYsetpoint = BOPShield.oval(analogRead(_P));
+    BLA::Matrix<2, 1> XYsetpoint = BOPShield.circle(analogRead(_P));
 
     rX = XYsetpoint(0);
     rY = XYsetpoint(1);
