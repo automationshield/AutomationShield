@@ -4,7 +4,7 @@
 #include <Arduino.h>
 #include <Servo.h>
 #include "AutomationShield.h"
-#include <BasicLinearAlgebra.h>
+#include <lib/BasicLinearAlgebra/BasicLinearAlgebra.h>
 
 #define _X1 A0
 #define _X2 A2
