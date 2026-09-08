@@ -16,7 +16,9 @@ jobs:
         uses: matlab-actions/setup-matlab@v3
         with:
           release: R2024b
-          products: Simulink
+          products: >
+            Simulink
+            System_Identification_Toolbox
 
       - name: Run script
         uses: matlab-actions/run-command@v3
