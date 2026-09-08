@@ -15,8 +15,8 @@ jobs:
       - name: Install MATLAB
         uses: matlab-actions/setup-matlab@v3
         with:
-        release: R2024b
-        products: Simulink
+          release: R2024b
+          products: Simulink
 
       - name: Run script
         uses: matlab-actions/run-command@v3
