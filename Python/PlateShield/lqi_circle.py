@@ -14,8 +14,9 @@ The gains are copied, not retuned or validated for PC/USB timing.
 
 import argparse
 import math
+import time
 
-from plateshield import PlateController
+from plateshield import PlateClass
 
 DEFAULT_PORT = "COM11"  # Used when running from the editor without arguments.
 
@@ -24,7 +25,7 @@ def clamp(value, lower, upper):
     return max(lower, min(upper, value))
 
 
-class LQIController(PlateController):
+class LQIController:
     def reset(self, sample):
         self.previous_x = sample.x
         self.previous_y = sample.y
@@ -53,6 +54,8 @@ def main():
     args = parser.parse_args()
     if not math.isfinite(args.circle_period) or args.circle_period <= 0:
         parser.error("--circle-period must be positive and finite")
+    if not math.isfinite(args.duration) or args.duration <= 0:
+        parser.error("--duration must be positive and finite")
     if args.plot:
         import matplotlib.pyplot as plt
 
@@ -60,13 +63,49 @@ def main():
         angle = 2.0 * math.pi * t / args.circle_period
         return 51.0 + 15.0 * math.cos(angle), 30.0 + 15.0 * math.sin(angle)
 
-    controller = LQIController(args.port)
+    controller = LQIController()
+    history = []
+    period = 0.05  # Nominal sampling period: 20 Hz.
     print(f"LQI on PC, port {args.port}, 20 Hz. Press Ctrl+C to stop.")
     try:
-        controller.run(reference, duration=args.duration, frequency=20.0)
+        with PlateClass(args.port) as PlateShield:
+            previous = PlateShield.sensorRead()
+            controller.reset(previous)
+            start = time.monotonic()
+            deadline = start + period
+            elapsed = 0.0
+
+            while True:
+                time.sleep(max(0.0, deadline - time.monotonic()))
+                if time.monotonic() - start >= args.duration:
+                    break
+
+                # Read the ball position from the Arduino.
+                sample = PlateShield.sensorRead()
+                dt = ((sample.time_ms - previous.time_ms) & 0xFFFFFFFF) / 1000.0
+                if not 0 < dt <= 0.3:
+                    raise RuntimeError("Sampling interrupted or board reset; control stopped")
+                elapsed += dt
+                target = reference(elapsed)
+
+                # Compute the LQI commands on the PC.
+                u_x, u_y = controller.controller(elapsed, dt, target, sample)
+                if time.monotonic() - start >= args.duration:
+                    break
+                if time.monotonic() - deadline > 0.3:
+                    raise RuntimeError("Controller missed its deadline; control stopped")
+
+                # Send both servo commands to the Arduino.
+                applied = PlateShield.actuatorWrite(u_x, u_y)
+                history.append((elapsed, dt, sample.x, sample.y,
+                                target[0], target[1], applied.u_x, applied.u_y))
+                previous = sample
+                deadline += period
+                if deadline <= time.monotonic():
+                    deadline = time.monotonic() + period
+        # The context manager commands neutral and closes the serial port.
     except KeyboardInterrupt:
         print("Experiment interrupted.")
-    history = controller.history
     print(f"Recorded {len(history)} samples in memory; connection closed.")
     if args.plot and history:
         t, dt, x, y, rx, ry, ux, uy = zip(*history)

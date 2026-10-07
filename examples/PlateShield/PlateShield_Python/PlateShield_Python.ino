@@ -3,6 +3,7 @@
   Upload once, then close Serial Monitor before connecting from Python.
   HELLO -> PLATESHIELD 1
   READ / SET <uX> <uY> / STOP -> DATA <millis> <x_mm> <y_mm> <uX> <uY>
+  REF -> REF <potentiometer_percent>
   Commands are offsets in degrees, limited to [-10, 10].
   STOP and 500 ms without a valid SET return to actuatorWrite(0, 0).
   This holds the nominal neutral servo positions; it does not detach servos.
@@ -70,6 +71,9 @@ void processCommand() {
     Serial.println(F("PLATESHIELD 1"));
   } else if (!first && strcmp(operation, "READ") == 0) {
     sendMeasurement();
+  } else if (!first && strcmp(operation, "REF") == 0) {
+    Serial.print(F("REF "));
+    Serial.println(PlateShield.referenceRead(), 3);
   } else if (!first && strcmp(operation, "STOP") == 0) {
     neutral();
     sendMeasurement();

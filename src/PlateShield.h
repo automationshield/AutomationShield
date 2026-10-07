@@ -47,6 +47,13 @@ public:
   }
 
 
+  // Potentiometer reference in percent, using the default 10-bit ADC range.
+  float referenceRead()
+  {
+    return analogRead(_P) * (100.0f / 1023.0f);
+  }
+
+
   int getvalueX()
   {
     pinMode(_X1, OUTPUT);

@@ -4,13 +4,16 @@ Upload examples/PlateShield/PlateShield_Python/PlateShield_Python.ino first.
 Install: python -m pip install -r requirements.txt
 Close Arduino Serial Monitor, then use:
 
-    with PlateShield("COM3") as plate:
-        sample = plate.read()
-        print(sample.x, sample.y)  # mm, currently integer sensor resolution
-        plate.write(1.0, -1.0)     # servo offsets in degrees, NOT position targets
-        plate.stop()              # nominal neutral position
+    from plateshield import PlateClass
 
-Repeat write() within 500 ms to maintain an output. No background keepalive:
+    with PlateClass("COM11") as PlateShield:
+        sample = PlateShield.sensorRead()
+        print(sample.x, sample.y)  # mm, currently integer sensor resolution
+        reference = PlateShield.referenceRead()  # potentiometer in percent (0-100)
+        PlateShield.actuatorWrite(1.0, -1.0)  # servo offsets, NOT position targets
+        PlateShield.stop()              # nominal neutral position
+
+Repeat actuatorWrite() within 500 ms to maintain an output. No background keepalive:
 if the controller stalls, firmware returns to neutral. Single-threaded API.
 Serial implementation follows https://pyserial.readthedocs.io/en/latest/pyserial_api.html
 """
@@ -31,7 +34,7 @@ class Sample:
     u_y: float
 
 
-class PlateShield:
+class PlateClass:
     def __init__(self, port: str, timeout: float = 0.25):
         if not math.isfinite(timeout) or not 0 < timeout <= 1:
             raise ValueError("timeout must be in (0, 1] seconds")
@@ -78,16 +81,42 @@ class PlateShield:
             self._serial.close()
             raise RuntimeError(f"Invalid PlateShield reply: {line!r}") from exc
 
-    def read(self) -> Sample:
+    def sensorRead(self) -> Sample:
         """Read position and last commanded outputs; does not renew watchdog."""
         return self._sample("READ")
 
-    def write(self, u_x: float, u_y: float) -> Sample:
+    def actuatorWrite(self, u_x: float, u_y: float) -> Sample:
         """Apply offsets in [-10, 10] degrees and return a fresh measurement."""
         u_x, u_y = float(u_x), float(u_y)
         if not all(math.isfinite(u) and -10 <= u <= 10 for u in (u_x, u_y)):
             raise ValueError("Servo offsets must be finite and within [-10, 10]")
         return self._sample(f"SET {u_x:.4f} {u_y:.4f}")
+
+    def referenceRead(self) -> float:
+        """Read potentiometer in percent (0-100), not the circle's target position.
+
+        Requires firmware with REF support; does not renew the actuator watchdog.
+        """
+        line = self._exchange("REF")
+        try:
+            fields = line.split()
+            if len(fields) != 2 or fields[0] != "REF":
+                raise ValueError("Unexpected reference reply")
+            value = float(fields[1])
+            if not math.isfinite(value) or not 0 <= value <= 100:
+                raise ValueError("Invalid potentiometer value")
+            return value
+        except ValueError as exc:
+            self._serial.close()
+            raise RuntimeError(f"Invalid PlateShield reply: {line!r}") from exc
+
+    def read(self) -> Sample:
+        """Compatibility alias for sensorRead()."""
+        return self.sensorRead()
+
+    def write(self, u_x: float, u_y: float) -> Sample:
+        """Compatibility alias for actuatorWrite()."""
+        return self.actuatorWrite(u_x, u_y)
 
     def stop(self) -> Sample:
         """Command neutral servo positions, without detaching the servos."""
@@ -138,8 +167,8 @@ class PlateController:
             raise ValueError("frequency must be between 5 and 50 Hz")
         period = 1.0 / frequency
         self.history = []
-        with PlateShield(self.port) as plate:
-            previous = plate.read()
+        with PlateClass(self.port) as PlateShield:
+            previous = PlateShield.sensorRead()
             self.reset(previous)
             start = time.monotonic()
             deadline = start + period
@@ -148,7 +177,7 @@ class PlateController:
                 time.sleep(max(0.0, deadline - time.monotonic()))
                 if time.monotonic() - start >= duration:
                     break
-                sample = plate.read()
+                sample = PlateShield.sensorRead()
                 # Unsigned difference handles the Arduino millis() rollover.
                 dt = ((sample.time_ms - previous.time_ms) & 0xFFFFFFFF) / 1000.0
                 if not 0 < dt <= 0.3:
@@ -163,7 +192,7 @@ class PlateController:
                     break
                 if time.monotonic() - deadline > 0.3:
                     raise RuntimeError("Controller missed its deadline; control stopped")
-                applied = plate.write(u_x, u_y)
+                applied = PlateShield.actuatorWrite(u_x, u_y)
                 self.history.append((elapsed, dt, sample.x, sample.y,
                                      target[0], target[1], applied.u_x, applied.u_y))
                 previous = sample
