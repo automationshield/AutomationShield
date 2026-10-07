@@ -23,6 +23,8 @@ class PlateClass
 {
 public:
 
+  #include "getKalmanEstimate.inl"
+
   void begin()
   {
     pinMode(_T1, INPUT);
