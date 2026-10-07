@@ -1,7 +1,10 @@
-#ifndef BOPSHIELD_H
-#define BOPSHIELD_H
+#ifndef PLATESHIELD_H
+#define PLATESHIELD_H
 
 #include <Arduino.h>
+#ifdef ARDUINO_ARCH_AVR
+#include <avr/pgmspace.h>
+#endif
 #include <Servo.h>
 #include "AutomationShield.h"
 #include <lib/BasicLinearAlgebra/BasicLinearAlgebra.h>
@@ -16,7 +19,7 @@
 #define _S1 8
 #define _S2 9
 
-class BOPClass
+class PlateClass
 {
 public:
 
@@ -53,9 +56,9 @@ public:
     digitalWrite(_X1, HIGH);
     digitalWrite(_X2, LOW);
 
-    _X = analogRead(_Y1);
+    _rawX = analogRead(_Y1);
 
-    return _X;
+    return _rawX;
   }
 
 
@@ -70,9 +73,9 @@ public:
     digitalWrite(_Y1, HIGH);
     digitalWrite(_Y2, LOW);
 
-    _Y = analogRead(_X1);
+    _rawY = analogRead(_X1);
 
-    return _Y;
+    return _rawY;
   }
 
 
@@ -116,14 +119,14 @@ public:
 
     if (millis() - lastTimeCircle > timeInterval)
     {
-      _XYsetpointCircle(0) = CircleX[i];
-      _XYsetpointCircle(1) = CircleY[i];
+      _XYsetpointCircle(0) = 51.0f + 15.0f * referenceSin(indexCircle + 8);
+      _XYsetpointCircle(1) = 30.0f + 15.0f * referenceSin(indexCircle);
 
-      i++;
+      indexCircle++;
 
-      if (i == 32)
+      if (indexCircle == 32)
       {
-        i = 0;
+        indexCircle = 0;
       }
 
       lastTimeCircle = millis();
@@ -139,20 +142,46 @@ public:
 
     if (millis() - lastTimeOval > timeInterval)
     {
-      _XYsetpointOval(0) = OvalX[i];
-      _XYsetpointOval(1) = OvalY[i];
+      _XYsetpointOval(0) = 51.0f + 20.0f * referenceSin(indexOval + 8);
+      _XYsetpointOval(1) = 30.0f + 10.0f * referenceSin(indexOval);
 
-      i++;
+      indexOval++;
 
-      if (i == 32)
+      if (indexOval == 32)
       {
-        i = 0;
+        indexOval = 0;
       }
 
       lastTimeOval = millis();
     }
 
     return _XYsetpointOval;
+  }
+
+
+  // Four corner references in mm: (31,20), (71,20), (71,40), (31,40).
+  // Hold each corner for 1000-1500 ms, selected by the potentiometer.
+  BLA::Matrix<2, 1> rectangle(float speed)
+  {
+    const unsigned long interval = map(speed, 0, 1023, 1000, 1500);
+    const unsigned long now = millis();
+
+    if (!rectangleStarted)
+    {
+      lastTimeRectangle = now;
+      rectangleStarted = true;
+    }
+
+    if (now - lastTimeRectangle >= interval)
+    {
+      indexRectangle = (indexRectangle + 1) % 4;
+      _XYsetpointRectangle(0) =
+        (indexRectangle == 1 || indexRectangle == 2) ? 71.0f : 31.0f;
+      _XYsetpointRectangle(1) = indexRectangle >= 2 ? 40.0f : 20.0f;
+      lastTimeRectangle = now;
+    }
+
+    return _XYsetpointRectangle;
   }
 
 
@@ -316,8 +345,8 @@ public:
 
 private:
 
-  int _X = 0;
-  int _Y = 0;
+  int _rawX = 0;
+  int _rawY = 0;
 
   int _Xmm = 0;
   int _Ymm = 0;
@@ -348,65 +377,49 @@ private:
 
   unsigned long lastTimeCircle = 0;
   unsigned long lastTimeOval = 0;
+  unsigned long lastTimeRectangle = 0;
 
   unsigned long lastTimeLQR = 0;
 
   float timeInterval = 0.0;
 
 
-  int i = 0;
+  uint8_t indexCircle = 0;
+  uint8_t indexOval = 0;
+  uint8_t indexRectangle = 0;
+  bool rectangleStarted = false;
 
 
-  uint8_t CircleX[32] =
+  // sin(2*pi*index/32), reconstructed from one quarter-wave.
+  // AVR stores the shared 36-byte table in flash, not in each object's RAM.
+  // Circle: (51 + 15*cos(theta), 30 + 15*sin(theta)) mm.
+  // Ellipse: (51 + 20*cos(theta), 30 + 10*sin(theta)) mm.
+  static float referenceSin(uint8_t index)
   {
-    66, 66, 65, 63,
-    62, 59, 57, 54,
-    51, 48, 45, 43,
-    40, 39, 37, 36,
-    36, 36, 37, 39,
-    40, 43, 45, 48,
-    51, 54, 57, 59,
-    62, 63, 65, 66
-  };
+    static const float quarterWave[9]
+#ifdef ARDUINO_ARCH_AVR
+      PROGMEM
+#endif
+      = {
+        0.000000000f, 0.195090322f, 0.382683432f,
+        0.555570233f, 0.707106781f, 0.831469612f,
+        0.923879533f, 0.980785280f, 1.000000000f
+      };
 
-
-  uint8_t CircleY[32] =
-  {
-    30, 33, 36, 38,
-    41, 42, 44, 45,
-    45, 45, 44, 42,
-    41, 38, 36, 33,
-    30, 27, 24, 22,
-    19, 18, 16, 15,
-    15, 15, 16, 18,
-    19, 22, 24, 27
-  };
-
-
-  uint8_t OvalX[32] =
-  {
-    71, 71, 70, 68,
-    66, 62, 59, 55,
-    51, 47, 43, 40,
-    36, 34, 32, 31,
-    31, 31, 32, 34,
-    36, 40, 43, 47,
-    51, 55, 59, 62,
-    66, 68, 70, 71
-  };
-
-
-  uint8_t OvalY[32] =
-  {
-    30, 32, 34, 36,
-    37, 38, 39, 40,
-    40, 40, 39, 38,
-    37, 36, 34, 32,
-    30, 28, 26, 24,
-    23, 22, 21, 20,
-    20, 20, 21, 22,
-    23, 24, 26, 28
-  };
+    index %= 32;
+    const bool negative = index >= 16;
+    uint8_t offset = index % 16;
+    if (offset > 8)
+    {
+      offset = 16 - offset;
+    }
+#ifdef ARDUINO_ARCH_AVR
+    const float value = pgm_read_float(&quarterWave[offset]);
+#else
+    const float value = quarterWave[offset];
+#endif
+    return negative ? -value : value;
+  }
 
 
   float _Xcenter = 508;
@@ -420,8 +433,9 @@ private:
 
 
   BLA::Matrix<2, 1> _XY;
-  BLA::Matrix<2, 1> _XYsetpointCircle;
-  BLA::Matrix<2, 1> _XYsetpointOval;
+  BLA::Matrix<2, 1> _XYsetpointCircle = {66.0f, 30.0f};
+  BLA::Matrix<2, 1> _XYsetpointOval = {71.0f, 30.0f};
+  BLA::Matrix<2, 1> _XYsetpointRectangle = {31.0f, 20.0f};
   BLA::Matrix<2, 1> _XY_LQR;
 
 
@@ -436,7 +450,7 @@ private:
  * "static" prevents linker multiple-definition errors if this header
  * is included from more than one compilation unit.
  */
-static BOPClass BOPShield;
+static PlateClass PlateShield;
 
 
 #endif

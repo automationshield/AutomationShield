@@ -1,5 +1,7 @@
+// Rectangle: (31,20) -> (71,20) -> (71,40) -> (31,40) mm.
+// The potentiometer sets the corner hold time to 1000-1500 ms.
 #include <SamplingServo.h>
-#include <BOPShield.h>
+#include <PlateShield.h>
 #include <PIDAbs.h>
 
 #define KP_X 0.18
@@ -10,7 +12,8 @@
 #define TI_Y 0.3
 #define TD_Y 0.5
 
-const float Ts = 50;   
+const unsigned long Ts_us = 50000UL;
+const float Ts = Ts_us / 1000000.0f;  // Controller period in seconds.
 
 float x, y;
 float rX, rY;
@@ -27,34 +30,40 @@ void stepEnable() {
 
 void setup() {
   Serial.begin(115200);
-  BOPShield.begin();
-  BOPShield.calibration();
+  PlateShield.begin();
+  PlateShield.calibration();
 
   PIDAbsX.setKp(KP_X);
   PIDAbsX.setTi(TI_X);
   PIDAbsX.setTd(TD_X);
-  PIDAbsX.setTs(0.05);
+  PIDAbsX.setTs(Ts);
 
   PIDAbsY.setKp(KP_Y);
   PIDAbsY.setTi(TI_Y);
   PIDAbsY.setTd(TD_Y);
-  PIDAbsY.setTs(0.05);
+  PIDAbsY.setTs(Ts);
 
   Serial.println("x, y, rX, rY, uX, uY");
 
-  Sampling.period(Ts * 1000);
+  Sampling.period(Ts_us);
   Sampling.interrupt(stepEnable);
 }
 
 void loop() {
-  if (stepFlag == true) {
+  // Consume the timer flag atomically; run control and Serial outside the ISR.
+  noInterrupts();
+  const bool runStep = stepFlag;
+  stepFlag = false;
+  interrupts();
 
-    BLA::Matrix<2, 1> XY = BOPShield.sensorRead();
+  if (runStep) {
+
+    BLA::Matrix<2, 1> XY = PlateShield.sensorRead();
 
     x = XY(0);
     y = XY(1);
 
-    BLA::Matrix<2, 1> XYsetpoint = BOPShield.oval(analogRead(_P));
+    BLA::Matrix<2, 1> XYsetpoint = PlateShield.rectangle(analogRead(_P));
 
     rX = XYsetpoint(0);
     rY = XYsetpoint(1);
@@ -62,14 +71,13 @@ void loop() {
     uX = PIDAbsX.compute(rX - x, -10, 10, -100, 100);
     uY = PIDAbsY.compute(rY - y, -10, 10, -100, 100);
 
-    BOPShield.actuatorWrite(uX, uY);
+    PlateShield.actuatorWrite(uX, uY);
 
-    Serial.print(x); Serial.print(" ");
-    Serial.print(y); Serial.print(" ");
+    Serial.print(x); Serial.print(", ");
+    Serial.print(y); Serial.print(", ");
     Serial.print(rX); Serial.print(", ");
     Serial.print(rY); Serial.print(", ");
     Serial.print(uX); Serial.print(", ");
     Serial.println(uY);
-    stepFlag = false;
   }
 }

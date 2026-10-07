@@ -1,11 +1,9 @@
 #include <SamplingServo.h>
-#include <BOPShield.h>
-#include <BasicLinearAlgebra.h>
+#include <PlateShield.h>
 
-using namespace BLA;
 
-const float Ts_ms = 50.0;
-const float Ts = 0.05;
+const unsigned long Ts_us = 50000UL;
+const float Ts = Ts_us / 1000000.0f;  // Controller period in seconds.
 
 float rX = 51.0;
 float rY = 30.0;
@@ -27,7 +25,7 @@ float uY = 0.0;
 
 volatile bool stepFlag = false;
 
-Matrix<2, 6> K = {
+BLA::Matrix<2, 6> K = {
   -0.43,  -0.11,   0.0,    0.0,    0.20,   0.0,
    0.0,    0.0,   -0.35,  -0.10,   0.0,    0.13
 };
@@ -38,10 +36,10 @@ void stepEnable() {
 
 void setup() {
   Serial.begin(115200);
-  BOPShield.begin();
-  BOPShield.calibration();
+  PlateShield.begin();
+  PlateShield.calibration();
 
-  Matrix<2, 1> XY = BOPShield.sensorRead();
+  BLA::Matrix<2, 1> XY = PlateShield.sensorRead();
 
   x = XY(0);
   y = XY(1);
@@ -50,15 +48,20 @@ void setup() {
   yPrev = y;
 
   Serial.println("x, y, rX, rY, uX, uY");
-  Sampling.period(Ts_ms * 1000);
+  Sampling.period(Ts_us);
   Sampling.interrupt(stepEnable);
 }
 
 void loop() {
-  if (stepFlag == true) {
-    stepFlag = false;
+  // Consume the timer flag atomically; run control and Serial outside the ISR.
+  noInterrupts();
+  const bool runStep = stepFlag;
+  stepFlag = false;
+  interrupts();
 
-    Matrix<2, 1> XY = BOPShield.sensorRead();
+  if (runStep) {
+
+    BLA::Matrix<2, 1> XY = PlateShield.sensorRead();
 
     x = XY(0);
     y = XY(1);
@@ -75,7 +78,7 @@ void loop() {
     intX = constrain(intX, -100.0, 100.0);
     intY = constrain(intY, -100.0, 100.0);
 
-    Matrix<6, 1> Xa = {
+    BLA::Matrix<6, 1> Xa = {
       x - rX,
       dx,
       y - rY,
@@ -84,7 +87,7 @@ void loop() {
       intY
     };
 
-    Matrix<2, 1> U = K * Xa;
+    BLA::Matrix<2, 1> U = K * Xa;
 
     uX = U(0);
     uY = U(1);
@@ -92,7 +95,7 @@ void loop() {
     uX = constrain(uX, -10.0, 10.0);
     uY = constrain(uY, -10.0, 10.0);
 
-    BOPShield.actuatorWrite(uX, uY);
+    PlateShield.actuatorWrite(uX, uY);
 
     xPrev = x;
     yPrev = y;
